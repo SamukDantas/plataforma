@@ -81,7 +81,7 @@ plataforma/
 ├── .gitignore          # Arquivos a ignorar no Git
 ├── REQUIREMENTS_CHECKLIST.md  # Checklist de requisitos
 ├── music/              # Arquivos de música
-    └── background.mp3  # Música de fundo do jogo
+|    └── background.mp3  # Música de fundo do jogo
 └── sounds/             # Efeitos sonoros (expandir conforme necessário)
 ```
 
