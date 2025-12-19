@@ -73,7 +73,7 @@ Um jogo de plataforma educativo desenvolvido em Python usando PgZero, seguindo p
 ## 📁 Estrutura do Projeto
 
 ```
-platformer_game/
+plataforma/
 ├── game.py              # Código principal do jogo
 ├── README.md            # Documentação
 ├── requirements.txt     # Dependências Python
@@ -81,7 +81,7 @@ platformer_game/
 ├── .gitignore          # Arquivos a ignorar no Git
 ├── REQUIREMENTS_CHECKLIST.md  # Checklist de requisitos
 ├── music/              # Arquivos de música
-│   └── background.mp3  # Música de fundo do jogo
+    └── background.mp3  # Música de fundo do jogo
 └── sounds/             # Efeitos sonoros (expandir conforme necessário)
 ```
 
