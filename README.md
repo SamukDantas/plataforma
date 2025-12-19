@@ -7,7 +7,7 @@ Um jogo de plataforma educativo desenvolvido em Python usando PgZero, seguindo p
 ✅ **Bibliotecas permitidas**: Apenas PgZero, math e random  
 ✅ **Gênero**: Platformer (visão lateral com plataformas)  
 ✅ **Menu principal**: Com botões clicáveis (Iniciar, Som On/Off, Sair)  
-✅ **Música e sons**: Sistema de controle implementado  
+✅ **Música e sons**: Sistema de controle implementado com música de fundo  
 ✅ **Inimigos**: Múltiplos inimigos perigosos para o herói  
 ✅ **Movimento de inimigos**: Patrulham suas plataformas  
 ✅ **Classes próprias**: Implementação de movimento e animação  
@@ -28,6 +28,7 @@ Um jogo de plataforma educativo desenvolvido em Python usando PgZero, seguindo p
   - Sistema de plataformas com colisão
   - Inimigos que patrulham suas áreas
   - Sistema de pontuação baseado em tempo de sobrevivência
+  - Música de fundo durante o jogo
 
 ### Personagens
 - **Herói**: Personagem azul controlado pelo jogador
@@ -38,6 +39,11 @@ Um jogo de plataforma educativo desenvolvido em Python usando PgZero, seguindo p
   - Animação: Pulsam entre tons de vermelho
   - Patrulham plataformas automaticamente
   - Mudam de direção ao alcançar bordas
+
+### Sistema de Áudio
+- **Música de Fundo**: Toca automaticamente durante o jogo
+- **Controle de Som**: Botão no menu para ligar/desligar
+- **Estado Persistente**: Configuração de som mantida durante a sessão
 
 ## 🏗️ Estrutura do Código (SOLID)
 
@@ -71,7 +77,12 @@ platformer_game/
 ├── game.py              # Código principal do jogo
 ├── README.md            # Documentação
 ├── requirements.txt     # Dependências Python
-└── .gitignore          # Arquivos a ignorar no Git
+├── LICENSE              # Licença MIT
+├── .gitignore          # Arquivos a ignorar no Git
+├── REQUIREMENTS_CHECKLIST.md  # Checklist de requisitos
+├── music/              # Arquivos de música
+│   └── background.mp3  # Música de fundo do jogo
+└── sounds/             # Efeitos sonoros (expandir conforme necessário)
 ```
 
 ## 🚀 Como Executar
@@ -94,6 +105,20 @@ Ou usando o comando pgzrun:
 pgzrun game.py
 ```
 
+### 3. Controles do Jogo
+
+- **Menu Principal**:
+  - Clique em "Iniciar Jogo" para começar
+  - Clique em "Som: ON/OFF" para controlar o áudio
+  - Clique em "Sair" para fechar o jogo
+
+- **Durante o Jogo**:
+  - Setas ← → para mover o personagem
+  - ESPAÇO para pular
+  
+- **Tela de Game Over**:
+  - ENTER para voltar ao menu
+
 ## 🎨 Princípios de Clean Code Aplicados
 
 1. **Nomes Significativos**: Variáveis e funções com nomes claros
@@ -112,13 +137,35 @@ Este projeto é ideal para ensinar:
 - Sistema de estados (State pattern)
 - Detecção de colisões
 - Animação de sprites
+- Integração de áudio em jogos
 
 ## 📝 Notas Técnicas
 
 - **Animação**: Implementada através de ciclos de cores (simulando sprites)
 - **Física**: Sistema de gravidade e colisão básicos
+- **Áudio**: Sistema de música e sons com controle on/off
 - **Performance**: ~100-200 linhas significativas de código
 - **Complexidade**: Apropriada para programadores iniciantes
+
+## 🎵 Sistema de Áudio
+
+O jogo utiliza o sistema de áudio do PgZero para:
+- Tocar música de fundo em loop durante o jogo
+- Controlar o estado de som (ligado/desligado)
+- Suporte para efeitos sonoros futuros
+
+### Estrutura de Áudio
+
+- **music/**: Pasta para arquivos de música (formato MP3)
+  - `background.mp3`: Música de fundo do jogo
+- **sounds/**: Pasta para efeitos sonoros (expandir conforme necessário)
+
+### Como Adicionar Novos Sons
+
+1. Adicione arquivos MP3 na pasta `music/` para músicas de fundo
+2. Adicione arquivos WAV na pasta `sounds/` para efeitos sonoros
+3. Use `music.play('nome_do_arquivo')` para músicas
+4. Use `sounds.nome_do_arquivo.play()` para efeitos
 
 ## 🔧 Possíveis Melhorias Futuras
 
@@ -128,11 +175,12 @@ Para alunos avançados, sugestões de expansão:
 3. Adicionar power-ups
 4. Criar múltiplos níveis
 5. Implementar sistema de save/load
-6. Adicionar efeitos sonoros reais
+6. Adicionar mais efeitos sonoros (pulo, colisão, etc.)
+7. Implementar música diferente para menu e game over
 
 ## 📜 Licença
 
-Este projeto é de código aberto para fins educacionais.
+Este projeto é de código aberto para fins educacionais (Licença MIT).
 
 ## 👨‍🏫 Autor
 
