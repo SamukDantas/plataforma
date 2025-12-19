@@ -1,4 +1,4 @@
-# 🎮 Plataforma - aventura
+# 🎮 Plataforma - Aventura
 
 Um jogo de plataforma educativo desenvolvido em Python usando PgZero, seguindo princípios SOLID e Clean Code.
 
