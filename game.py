@@ -24,6 +24,9 @@ PLAYER_SPEED = 4
 ENEMY_SPEED = 2
 
 ENEMY_SPRITE = 'jacare/jacare.png'
+PLAYER_SPRITE_IDLE = 'mini_homem/mini_homem_parado.png'
+PLAYER_SPRITE_JUMPING = 'mini_homem/mini_homem_correndo.png'
+PLAYER_SPRITE_RUNING = 'mini_homem/mini_homem_pulando.png'
 
 class GameState(Enum):
     """Enumeração dos estados do jogo"""
@@ -31,54 +34,53 @@ class GameState(Enum):
     PLAYING = 2
     GAME_OVER = 3
 
+# --- CLASSE AnimatedSprite REMOVIDA (Não é mais necessária) ---
 
-class AnimatedSprite:
-    """Classe base para sprites animados (usada pelo Player)"""
+class Player:
+    """Personagem do jogador com mecânica de pulo e sprites"""
 
-    def __init__(self, x, y, images, animation_speed=0.2):
+    def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.images = images
-        self.current_frame = 0
-        self.animation_speed = animation_speed
-        self.animation_timer = 0
         self.width = 40
         self.height = 40
 
-    def animate(self, dt):
-        """Atualiza o frame da animação"""
-        self.animation_timer += dt
-        if self.animation_timer >= self.animation_speed:
-            self.animation_timer = 0
-            self.current_frame = (self.current_frame + 1) % len(self.images)
-
-    def get_rect(self):
-        """Obtém o retângulo de colisão"""
-        return Rect(self.x, self.y, self.width, self.height)
-
-    def draw(self):
-        """Desenha o sprite com o frame atual da animação"""
-        screen.draw.filled_rect(
-            self.get_rect(),
-            self.images[self.current_frame]
-        )
-
-
-class Player(AnimatedSprite):
-    """Personagem do jogador com mecânica de pulo"""
-
-    def __init__(self, x, y):
-        # Cores da animação (simulando frames de sprite)
-        idle_colors = ['blue', 'darkblue', 'blue']
-        super().__init__(x, y, idle_colors, 0.15)
-
+        # Física
         self.velocity_y = 0
         self.is_on_ground = False
         self.facing_right = True
         self.jump_pressed = False
+        self.is_moving_horizontal = False # Nova flag para saber se está correndo
+
+        # --- Carregamento e Configuração de Sprites ---
+        # Tenta carregar as imagens. Se falhar, usa placeholders.
+        try:
+            # Carrega os Actors iniciais para obter as superfícies
+            idle_actor = Actor(PLAYER_SPRITE_IDLE)
+            run_actor = Actor(PLAYER_SPRITE_RUNING)
+            jump_actor = Actor(PLAYER_SPRITE_JUMPING)
+
+            # Escala as superfícies originais para o tamanho do hitbox (40x40)
+            # e guarda como superfícies base "limpas" (viradas para a direita)
+            self.surf_idle_base = pygame.transform.scale(idle_actor._surf, (self.width, self.height))
+            self.surf_run_base = pygame.transform.scale(run_actor._surf, (self.width, self.height))
+            self.surf_jump_base = pygame.transform.scale(jump_actor._surf, (self.width, self.height))
+
+            # O Actor principal que será desenhado na tela
+            self.MainActor = Actor(PLAYER_SPRITE_IDLE)
+            self.MainActor._surf = self.surf_idle_base # Define a imagem inicial
+            self.sprites_loaded = True
+        except Exception as e:
+            print(f"Erro ao carregar sprites do jogador: {e}")
+            self.sprites_loaded = False
+            self.MainActor = None # Fallback
 
     def update(self, dt, platforms):
-        """Atualiza a física e posição do jogador"""
+        """Atualiza a física, posição e escolhe o sprite correto"""
+        # Reseta a flag de movimento horizontal no início do frame
+        # Ela será setada como True se move_left/right forem chamados
+        self.is_moving_horizontal = False
+
         self.velocity_y += GRAVITY
         self.y += self.velocity_y
 
@@ -93,7 +95,29 @@ class Player(AnimatedSprite):
         if self.y > HEIGHT:
             return False
 
-        self.animate(dt)
+        # --- Lógica de Atualização do Sprite ---
+        if self.sprites_loaded and self.MainActor:
+            # 1. Determinar qual imagem base usar
+            target_surf = None
+            if not self.is_on_ground:
+                # Se não está no chão, está pulando/caindo
+                target_surf = self.surf_jump_base
+            elif self.is_moving_horizontal:
+                # Se está no chão e se movendo horizontalmente
+                target_surf = self.surf_run_base
+            else:
+                # Se está no chão e parado
+                target_surf = self.surf_idle_base
+
+            # 2. Aplicar espelhamento (flip) baseado na direção
+            # Se NÃO está olhando para direita, flip = True
+            is_flipped = not self.facing_right
+            final_surf = pygame.transform.flip(target_surf, is_flipped, False)
+
+            # 3. Atualizar o ator principal
+            self.MainActor._surf = final_surf
+            self.MainActor.topleft = (self.x, self.y)
+
         return True
 
     def jump(self):
@@ -110,102 +134,87 @@ class Player(AnimatedSprite):
     def move_left(self):
         self.x -= PLAYER_SPEED
         self.facing_right = False
+        self.is_moving_horizontal = True # Indica que houve movimento neste frame
         if self.x < 0:
             self.x = 0
 
     def move_right(self):
         self.x += PLAYER_SPEED
         self.facing_right = True
+        self.is_moving_horizontal = True # Indica que houve movimento neste frame
         if self.x > WIDTH - self.width:
             self.x = WIDTH - self.width
+
+    def get_rect(self):
+        return Rect(self.x, self.y, self.width, self.height)
 
     def check_collision(self, other):
         return self.get_rect().colliderect(other.get_rect())
 
+    def draw(self):
+        """Desenha o sprite do jogador"""
+        if self.sprites_loaded and self.MainActor:
+            self.MainActor.draw()
+        else:
+            # Fallback: desenha um quadrado azul se as imagens falharem
+            screen.draw.filled_rect(self.get_rect(), 'blue')
+
 
 class Enemy:
     """
-    Inimigo Jacaré - Refatorado para corrigir a direção do olhar
+    Inimigo Jacaré - Refatorado para usar Sprite/Imagem
     """
-
     def __init__(self, x, y, platform):
         self.x = x
         self.y = y
         self.platform = platform
         self.direction = random.choice([-1, 1])
         self.velocity_y = 0
-
-        # Dimensões do inimigo
         self.width = 50
         self.height = 50
 
-        # Carrega o ator com a imagem 'jacare' (deve estar na pasta images/)
         try:
             self.actor = Actor(ENEMY_SPRITE)
-
-            # Ajusta o tamanho da imagem para 50x50
             original_surf = self.actor._surf
             self.actor._surf = pygame.transform.scale(original_surf, (self.width, self.height))
-
-            # Guardamos a imagem original escalada para poder virar (flip) depois
             self.base_surf = self.actor._surf
-
         except Exception as e:
             print(f"Erro ao carregar sprite jacare: {e}")
             self.actor = None
 
     def update(self, dt):
-        """Atualiza o movimento do inimigo"""
-        # Move horizontalmente
         self.x += ENEMY_SPEED * self.direction
-
-        # Aplica gravidade
         self.velocity_y += GRAVITY
         self.y += self.velocity_y
 
-        # Verifica limites da plataforma
         platform_rect = self.platform.get_rect()
-        # Se bater na borda esquerda ou direita da plataforma, inverte a direção
         if self.x <= platform_rect.left:
-            self.direction = 1  # Força ir para direita
+            self.direction = 1
         elif self.x + self.width >= platform_rect.right:
-            self.direction = -1  # Força ir para esquerda
+            self.direction = -1
 
-        # Mantém na plataforma (colisão com o chão)
         if self.y + self.height >= self.platform.y:
             self.y = self.platform.y - self.height
             self.velocity_y = 0
 
-        # Atualiza a posição do Actor e a direção do olhar
         if self.actor:
             self.actor.topleft = (self.x, self.y)
-
-            # --- CORREÇÃO AQUI ---
-            # Lógica invertida:
-            # Se a direção for 1 (Direita), is_flipped será True (vira para direita).
-            # Se a direção for -1 (Esquerda), is_flipped será False (mantém original/esquerda).
-            # Nota: Isso assume que sua imagem original 'jacare.png' aponta para a ESQUERDA.
-            # Se a imagem apontar para a DIREITA, inverta para: (self.direction == -1)
-
+            # Assumindo que a imagem original olha para a ESQUERDA.
+            # Se direção for 1 (Direita), vira (True).
             is_flipped = (self.direction == 1)
-
             self.actor._surf = pygame.transform.flip(self.base_surf, is_flipped, False)
 
     def get_rect(self):
-        """Retorna o retângulo de colisão"""
         return Rect(self.x, self.y, self.width, self.height)
 
     def draw(self):
-        """Desenha o ator na tela"""
         if self.actor:
             self.actor.draw()
         else:
             screen.draw.filled_rect(self.get_rect(), 'red')
 
-
 class Platform:
     """Objeto de plataforma estática"""
-
     def __init__(self, x, y, width, height):
         self.x = x
         self.y = y
@@ -222,7 +231,6 @@ class Platform:
 
 class Button:
     """Botão clicável do menu"""
-
     def __init__(self, x, y, width, height, text, color='gray'):
         self.rect = Rect(x, y, width, height)
         self.text = text
@@ -249,16 +257,13 @@ class Button:
 
 class Game:
     """Controlador principal do jogo"""
-
     def __init__(self):
         self.state = GameState.MENU
         self.sound_enabled = True
         self.music_playing = False
-
         self.start_button = Button(300, 200, 200, 60, "Iniciar Jogo")
         self.sound_button = Button(300, 280, 200, 60, "Som: ON")
         self.exit_button = Button(300, 360, 200, 60, "Sair")
-
         self.reset_game()
 
     def reset_game(self):
@@ -269,9 +274,7 @@ class Game:
             Platform(100, 250, 150, 20),
             Platform(500, 200, 150, 20),
         ]
-
         self.player = Player(50, 400)
-
         self.enemies = [
             Enemy(160, 410, self.platforms[1]),
             Enemy(410, 310, self.platforms[2]),
@@ -279,7 +282,6 @@ class Game:
             Enemy(250, 510, self.platforms[0]),
             Enemy(600, 510, self.platforms[0]),
         ]
-
         self.game_over = False
         self.score = 0
 
@@ -320,6 +322,7 @@ class Game:
 
     def update(self, dt):
         if self.state == GameState.PLAYING:
+            # O update do player agora cuida da troca de sprites
             if not self.player.update(dt, self.platforms):
                 self.game_over = True
                 self.state = GameState.GAME_OVER
@@ -348,21 +351,11 @@ class Game:
             self.draw_game_over()
 
     def draw_menu(self):
-        screen.draw.text(
-            TITLE,
-            center=(WIDTH // 2, 100),
-            fontsize=50,
-            color='darkblue'
-        )
+        screen.draw.text(TITLE, center=(WIDTH // 2, 100), fontsize=50, color='darkblue')
         self.start_button.draw()
         self.sound_button.draw()
         self.exit_button.draw()
-        screen.draw.text(
-            "Sobreviva o máximo possível!",
-            center=(WIDTH // 2, 460),
-            fontsize=25,
-            color='white'
-        )
+        screen.draw.text("Sobreviva o máximo possível!", center=(WIDTH // 2, 460), fontsize=25, color='white')
 
     def draw_game(self):
         for platform in self.platforms:
@@ -370,54 +363,22 @@ class Game:
         for enemy in self.enemies:
             enemy.draw()
         self.player.draw()
-
         screen.draw.text(f"Pontuação: {self.score}", (10, 10), fontsize=30, color='white')
         screen.draw.text(f"Inimigos: {len(self.enemies)}", (10, 45), fontsize=25, color='white')
-        screen.draw.text(
-            "Setas direcionais [<-] [->] Mover | Espaço: Pular",
-            (10, HEIGHT - 30),
-            fontsize=20,
-            color='white'
-        )
+        screen.draw.text("Setas direcionais [<-] [->] Mover | Espaço: Pular", (10, HEIGHT - 30), fontsize=20, color='white')
 
     def draw_game_over(self):
-        screen.draw.text(
-            "GAME OVER",
-            center=(WIDTH // 2, HEIGHT // 2 - 50),
-            fontsize=60,
-            color='red'
-        )
-        screen.draw.text(
-            f"Pontuação Final: {self.score}",
-            center=(WIDTH // 2, HEIGHT // 2 + 20),
-            fontsize=40,
-            color='white'
-        )
-        screen.draw.text(
-            "Pressione ENTER para voltar ao menu",
-            center=(WIDTH // 2, HEIGHT // 2 + 80),
-            fontsize=25,
-            color='white'
-        )
-
+        screen.draw.text("GAME OVER", center=(WIDTH // 2, HEIGHT // 2 - 50), fontsize=60, color='red')
+        screen.draw.text(f"Pontuação Final: {self.score}", center=(WIDTH // 2, HEIGHT // 2 + 20), fontsize=40, color='white')
+        screen.draw.text("Pressione ENTER para voltar ao menu", center=(WIDTH // 2, HEIGHT // 2 + 80), fontsize=25, color='white')
 
 game = Game()
-
-
-def update(dt):
-    game.update(dt)
-
-
-def draw():
-    game.draw()
-
 
 def on_mouse_move(pos):
     if game.state == GameState.MENU:
         game.start_button.update(pos)
         game.sound_button.update(pos)
         game.exit_button.update(pos)
-
 
 def on_mouse_down(pos):
     if game.state == GameState.MENU:
@@ -427,7 +388,6 @@ def on_mouse_down(pos):
             game.toggle_sound()
         elif game.exit_button.is_clicked(pos):
             exit()
-
 
 def on_key_down(key):
     if game.state == GameState.PLAYING:
@@ -439,27 +399,24 @@ def on_key_down(key):
             game.state = GameState.MENU
             game.stop_music()
 
-
 def on_key_up(key):
     if game.state == GameState.PLAYING:
         if key == keys.SPACE:
             game.player.release_jump()
 
-
 def handle_keyboard():
+    # Esta função é chamada todo frame antes do update principal
     if game.state == GameState.PLAYING:
         if keyboard.left:
             game.player.move_left()
         if keyboard.right:
             game.player.move_right()
 
-
-_original_update = update
-
-
 def update(dt):
     handle_keyboard()
-    _original_update(dt)
+    game.update(dt)
 
+def draw():
+    game.draw()
 
 pgzrun.go()
