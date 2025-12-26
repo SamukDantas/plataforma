@@ -2,7 +2,10 @@ import pgzrun
 import random
 from enum import Enum
 import os
-import pygame.transform  # Necessário para transformar (escalar/virar) a imagem
+
+# Necessário para transformar (escalar/virar) o sprite, pois o PGZero não faz de modo nativo
+from pygame.transform import scale
+from pygame.transform import flip
 
 from pgzero import music
 from pgzero.keyboard import keyboard
@@ -73,9 +76,9 @@ class Player:
             jump_actor = Actor(PLAYER_SPRITE_JUMPING)
 
             # Escala para o tamanho do hitbox
-            self.surf_idle = pygame.transform.scale(idle_actor._surf, (self.width, self.height))
-            self.surf_run = pygame.transform.scale(run_actor._surf, (self.width, self.height))
-            self.surf_jump = pygame.transform.scale(jump_actor._surf, (self.width, self.height))
+            self.surf_idle = scale(idle_actor._surf, (self.width, self.height))
+            self.surf_run = scale(run_actor._surf, (self.width, self.height))
+            self.surf_jump = scale(jump_actor._surf, (self.width, self.height))
 
             # Actor principal
             self.actor = Actor(PLAYER_SPRITE_IDLE)
@@ -141,7 +144,7 @@ class Player:
             # 2. Aplicar espelhamento (flip) baseado na direção
             # Se NÃO está olhando para direita, flip = True
             is_flipped = not self.facing_right
-            final_surf = pygame.transform.flip(base_surf, is_flipped, False)
+            final_surf = flip(base_surf, is_flipped, False)
 
             # 3. Atualiza o actor
             self.actor._surf = final_surf
@@ -214,7 +217,7 @@ class Enemy:
 
         try:
             enemy_actor = Actor(ENEMY_SPRITE)
-            self.base_surf = pygame.transform.scale(enemy_actor._surf, (self.width, self.height))
+            self.base_surf = scale(enemy_actor._surf, (self.width, self.height))
             self.actor = Actor(ENEMY_SPRITE)
             self.actor._surf = self.base_surf
             self.sprites_loaded = True
@@ -249,7 +252,7 @@ class Enemy:
             # Assumindo que a imagem original olha para a ESQUERDA.
             # Se direção for 1 (Direita), vira (True).
             is_flipped = (self.direction == 1)
-            self.actor._surf = pygame.transform.flip(self.base_surf, is_flipped, False)
+            self.actor._surf = flip(self.base_surf, is_flipped, False)
 
     def get_rect(self):
         """Retorna retângulo de colisão"""
