@@ -10,7 +10,9 @@ from pgzero.loaders import sounds
 from pgzero.rect import Rect
 from pgzero.actor import Actor
 
-# Constantes do jogo
+# ============================================
+# CONSTANTES DO JOGO
+# ============================================
 WIDTH = 800
 HEIGHT = 600
 TITLE = "Plataforma - Aventura do Jacaré"
@@ -18,28 +20,37 @@ TITLE = "Plataforma - Aventura do Jacaré"
 # Centralizar janela na tela
 os.environ['SDL_VIDEO_CENTERED'] = '1'
 
+# Física
 GRAVITY = 0.5
 JUMP_STRENGTH = -12
 PLAYER_SPEED = 4
 ENEMY_SPEED = 2
 
+# Sprites
 ENEMY_SPRITE = 'jacare/jacare.png'
-PLAYER_SPRITE_IDLE = 'mini_homem/mini_homem_parado.png'
-PLAYER_SPRITE_RUNNING = 'mini_homem/mini_homem_correndo.png'
-PLAYER_SPRITE_JUMPING = 'mini_homem/mini_homem_pulando.png'
+PLAYER_SPRITE_IDLE = 'mini_homem/mini_homem_parado'
+PLAYER_SPRITE_RUNNING = 'mini_homem/mini_homem_correndo'
+PLAYER_SPRITE_JUMPING = 'mini_homem/mini_homem_pulando'
 
 
+# ============================================
+# ENUMERAÇÕES
+# ============================================
 class GameState(Enum):
-    """Enumeração dos estados do jogo"""
+    """Estados possíveis do jogo"""
     MENU = 1
     PLAYING = 2
     GAME_OVER = 3
 
 
-# --- CLASSE AnimatedSprite REMOVIDA (Não é mais necessária) ---
-
+# ============================================
+# CLASSE PLAYER
+# ============================================
 class Player:
-    """Personagem do jogador com mecânica de pulo e sprites"""
+    """
+    Personagem do jogador com mecânica de pulo e múltiplos sprites.
+    Usa PgZero + pygame mínimo (apenas para scale e flip).
+    """
 
     def __init__(self, x, y):
         self.x = x
@@ -52,41 +63,42 @@ class Player:
         self.is_on_ground = False
         self.facing_right = True
         self.jump_pressed = False
-        self.is_moving_horizontal = False  # Nova flag para saber se está correndo
+        self.is_moving_horizontal = False
 
-        # --- Carregamento e Configuração de Sprites ---
-        # Tenta carregar as imagens. Se falhar, usa placeholders.
+        # Sistema de Sprites
         try:
-            # Carrega os Actors iniciais para obter as superfícies
+            # Carrega os três sprites base
             idle_actor = Actor(PLAYER_SPRITE_IDLE)
             run_actor = Actor(PLAYER_SPRITE_RUNNING)
             jump_actor = Actor(PLAYER_SPRITE_JUMPING)
 
-            # Escala as superfícies originais para o tamanho do hitbox (40x40)
-            # e guarda como superfícies base "limpas" (viradas para a direita)
-            self.surf_idle_base = pygame.transform.scale(idle_actor._surf, (self.width, self.height))
-            self.surf_run_base = pygame.transform.scale(run_actor._surf, (self.width, self.height))
-            self.surf_jump_base = pygame.transform.scale(jump_actor._surf, (self.width, self.height))
+            # Escala para o tamanho do hitbox
+            self.surf_idle = pygame.transform.scale(idle_actor._surf, (self.width, self.height))
+            self.surf_run = pygame.transform.scale(run_actor._surf, (self.width, self.height))
+            self.surf_jump = pygame.transform.scale(jump_actor._surf, (self.width, self.height))
 
-            # O Actor principal que será desenhado na tela
-            self.MainActor = Actor(PLAYER_SPRITE_IDLE)
-            self.MainActor._surf = self.surf_idle_base  # Define a imagem inicial
+            # Actor principal
+            self.actor = Actor(PLAYER_SPRITE_IDLE)
+            self.actor._surf = self.surf_idle
             self.sprites_loaded = True
         except Exception as e:
             print(f"Erro ao carregar sprites do jogador: {e}")
             self.sprites_loaded = False
-            self.MainActor = None  # Fallback
 
     def update(self, dt, platforms):
-        """Atualiza a física, posição e escolhe o sprite correto"""
-        # Aplica física
+        """
+        Atualiza a física, posição e escolhe o sprite correto.
+        Retorna False se o jogador caiu fora da tela.
+        """
+        # Aplica gravidade
         self.velocity_y += GRAVITY
         self.y += self.velocity_y
 
+        # Verifica colisão com plataformas
         self.is_on_ground = False
         for platform in platforms:
             if self.check_collision(platform):
-                if self.velocity_y > 0:  # Caindo
+                if self.velocity_y > 0:  # Está caindo
                     self.y = platform.y - self.height
                     self.velocity_y = 0
                     self.is_on_ground = True
@@ -95,16 +107,13 @@ class Player:
         # Isso resolve problemas de timing entre física e renderização
         if not self.is_on_ground:
             for platform in platforms:
-                # Distância vertical até a plataforma
                 distance_to_platform = platform.y - (self.y + self.height)
-                # Se está a menos de 3 pixels e há overlap horizontal
                 if -3 <= distance_to_platform <= 3:
                     player_left = self.x
                     player_right = self.x + self.width
                     platform_left = platform.x
                     platform_right = platform.x + platform.width
 
-                    # Verifica overlap horizontal
                     if player_right > platform_left and player_left < platform_right:
                         self.is_on_ground = True
                         self.y = platform.y - self.height
@@ -112,39 +121,39 @@ class Player:
                             self.velocity_y = 0
                         break
 
+        # Verifica se caiu fora da tela
         if self.y > HEIGHT:
             return False
 
-        # --- Lógica de Atualização do Sprite ---
-        if self.sprites_loaded and self.MainActor:
-            # 1. Determinar qual imagem base usar
-            target_surf = None
+        # Atualização do sprite baseado no estado
+        if self.sprites_loaded:
+            # 1. Escolhe a superfície base
             if not self.is_on_ground:
                 # Se não está no chão, está pulando/caindo
-                target_surf = self.surf_jump_base
+                base_surf = self.surf_jump
             elif self.is_moving_horizontal:
                 # Se está no chão e se movendo horizontalmente
-                target_surf = self.surf_run_base
+                base_surf = self.surf_run
             else:
-                # Se está no chão e parado
-                target_surf = self.surf_idle_base
+                # Está no chão e parado
+                base_surf = self.surf_idle
 
             # 2. Aplicar espelhamento (flip) baseado na direção
             # Se NÃO está olhando para direita, flip = True
             is_flipped = not self.facing_right
-            final_surf = pygame.transform.flip(target_surf, is_flipped, False)
+            final_surf = pygame.transform.flip(base_surf, is_flipped, False)
 
-            # 3. Atualizar o ator principal
-            self.MainActor._surf = final_surf
-            self.MainActor.topleft = (self.x, self.y)
+            # 3. Atualiza o actor
+            self.actor._surf = final_surf
+            self.actor.topleft = (self.x, self.y)
 
-        # Reseta a flag de movimento para o próximo frame
-        # Será setada novamente se houver input no próximo frame
+        # Reseta a flag de movimento
         self.is_moving_horizontal = False
 
         return True
 
     def jump(self):
+        """Executa o pulo se estiver no chão. Retorna True se pulou."""
         if self.is_on_ground and not self.jump_pressed:
             self.velocity_y = JUMP_STRENGTH
             self.is_on_ground = False
@@ -153,41 +162,46 @@ class Player:
         return False
 
     def release_jump(self):
+        """Libera a tecla de pulo"""
         self.jump_pressed = False
 
     def move_left(self):
+        """Move o jogador para a esquerda"""
         self.x -= PLAYER_SPEED
         self.facing_right = False
-        self.is_moving_horizontal = True  # Indica que houve movimento neste frame
+        self.is_moving_horizontal = True
         if self.x < 0:
             self.x = 0
 
     def move_right(self):
+        """Move o jogador para a direita"""
         self.x += PLAYER_SPEED
         self.facing_right = True
-        self.is_moving_horizontal = True  # Indica que houve movimento neste frame
+        self.is_moving_horizontal = True
         if self.x > WIDTH - self.width:
             self.x = WIDTH - self.width
 
     def get_rect(self):
+        """Retorna o retângulo de colisão"""
         return Rect(self.x, self.y, self.width, self.height)
 
     def check_collision(self, other):
+        """Verifica colisão"""
         return self.get_rect().colliderect(other.get_rect())
 
     def draw(self):
-        """Desenha o sprite do jogador"""
-        if self.sprites_loaded and self.MainActor:
-            self.MainActor.draw()
+        """Desenha o sprite"""
+        if self.sprites_loaded:
+            self.actor.draw()
         else:
-            # Fallback: desenha um quadrado azul se as imagens falharem
             screen.draw.filled_rect(self.get_rect(), 'blue')
 
 
+# ============================================
+# CLASSE ENEMY
+# ============================================
 class Enemy:
-    """
-    Inimigo Jacaré - Refatorado para usar Sprite/Imagem
-    """
+    """Inimigo Jacaré que patrulha uma plataforma"""
 
     def __init__(self, x, y, platform):
         self.x = x
@@ -199,30 +213,38 @@ class Enemy:
         self.height = 50
 
         try:
+            enemy_actor = Actor(ENEMY_SPRITE)
+            self.base_surf = pygame.transform.scale(enemy_actor._surf, (self.width, self.height))
             self.actor = Actor(ENEMY_SPRITE)
-            original_surf = self.actor._surf
-            self.actor._surf = pygame.transform.scale(original_surf, (self.width, self.height))
-            self.base_surf = self.actor._surf
+            self.actor._surf = self.base_surf
+            self.sprites_loaded = True
         except Exception as e:
             print(f"Erro ao carregar sprite jacare: {e}")
-            self.actor = None
+            self.sprites_loaded = False
 
     def update(self, dt):
+        """Atualiza movimento do inimigo"""
+        # Movimento horizontal
         self.x += ENEMY_SPEED * self.direction
+
+        # Aplica gravidade
         self.velocity_y += GRAVITY
         self.y += self.velocity_y
 
+        # Verifica limites da plataforma
         platform_rect = self.platform.get_rect()
         if self.x <= platform_rect.left:
             self.direction = 1
         elif self.x + self.width >= platform_rect.right:
             self.direction = -1
 
+        # Mantém na plataforma
         if self.y + self.height >= self.platform.y:
             self.y = self.platform.y - self.height
             self.velocity_y = 0
 
-        if self.actor:
+        # Atualiza sprite
+        if self.sprites_loaded:
             self.actor.topleft = (self.x, self.y)
             # Assumindo que a imagem original olha para a ESQUERDA.
             # Se direção for 1 (Direita), vira (True).
@@ -230,17 +252,22 @@ class Enemy:
             self.actor._surf = pygame.transform.flip(self.base_surf, is_flipped, False)
 
     def get_rect(self):
+        """Retorna retângulo de colisão"""
         return Rect(self.x, self.y, self.width, self.height)
 
     def draw(self):
-        if self.actor:
+        """Desenha o inimigo"""
+        if self.sprites_loaded:
             self.actor.draw()
         else:
             screen.draw.filled_rect(self.get_rect(), 'red')
 
 
+# ============================================
+# CLASSE PLATFORM
+# ============================================
 class Platform:
-    """Objeto de plataforma estática"""
+    """Plataforma estática"""
 
     def __init__(self, x, y, width, height):
         self.x = x
@@ -256,6 +283,9 @@ class Platform:
         screen.draw.filled_rect(self.get_rect(), self.color)
 
 
+# ============================================
+# CLASSE BUTTON
+# ============================================
 class Button:
     """Botão clicável do menu"""
 
@@ -283,6 +313,9 @@ class Button:
         return self.rect.collidepoint(mouse_pos)
 
 
+# ============================================
+# CLASSE GAME
+# ============================================
 class Game:
     """Controlador principal do jogo"""
 
@@ -290,20 +323,24 @@ class Game:
         self.state = GameState.MENU
         self.sound_enabled = True
         self.music_playing = False
+
         self.start_button = Button(300, 200, 200, 60, "Iniciar Jogo")
         self.sound_button = Button(300, 280, 200, 60, "Som: ON")
         self.exit_button = Button(300, 360, 200, 60, "Sair")
+
         self.reset_game()
 
     def reset_game(self):
         self.platforms = [
-            Platform(0, 550, 800, 50),  # Chão
+            Platform(0, 550, 800, 50),
             Platform(150, 450, 150, 20),
             Platform(400, 350, 150, 20),
             Platform(100, 250, 150, 20),
             Platform(500, 200, 150, 20),
         ]
+
         self.player = Player(50, 400)
+
         self.enemies = [
             Enemy(160, 410, self.platforms[1]),
             Enemy(410, 310, self.platforms[2]),
@@ -311,12 +348,14 @@ class Game:
             Enemy(250, 510, self.platforms[0]),
             Enemy(600, 510, self.platforms[0]),
         ]
+
         self.game_over = False
         self.score = 0
 
     def toggle_sound(self):
         self.sound_enabled = not self.sound_enabled
         self.sound_button.text = f"Som: {'ON' if self.sound_enabled else 'OFF'}"
+
         if self.sound_enabled and self.state == GameState.PLAYING:
             self.play_music()
         else:
@@ -392,6 +431,7 @@ class Game:
         for enemy in self.enemies:
             enemy.draw()
         self.player.draw()
+
         screen.draw.text(f"Pontuação: {self.score}", (10, 10), fontsize=30, color='white')
         screen.draw.text(f"Inimigos: {len(self.enemies)}", (10, 45), fontsize=25, color='white')
         screen.draw.text("Setas direcionais [<-] [->] Mover | Espaço: Pular", (10, HEIGHT - 30), fontsize=20,
@@ -405,9 +445,15 @@ class Game:
                          color='white')
 
 
+# ============================================
+# INICIALIZAÇÃO
+# ============================================
 game = Game()
 
 
+# ============================================
+# EVENTOS
+# ============================================
 def on_mouse_move(pos):
     if game.state == GameState.MENU:
         game.start_button.update(pos)
@@ -443,7 +489,7 @@ def on_key_up(key):
 
 
 def handle_keyboard():
-    # Esta função é chamada todo frame antes do update principal
+    # Esta função é chamada em cada frame antes do update principal
     if game.state == GameState.PLAYING:
         if keyboard.left:
             game.player.move_left()
