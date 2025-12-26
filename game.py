@@ -356,6 +356,7 @@ class Game:
         self.score = 0
 
     def toggle_sound(self):
+        """Alterna o estado do som (ON/OFF)"""
         self.sound_enabled = not self.sound_enabled
         self.sound_button.text = f"Som: {'ON' if self.sound_enabled else 'OFF'}"
 
@@ -365,52 +366,66 @@ class Game:
             self.stop_music()
 
     def play_music(self):
+        """Inicia a música de fundo se o som estiver habilitado"""
         if self.sound_enabled and not self.music_playing:
             try:
                 music.play('background')
                 self.music_playing = True
-            except:
-                pass
+            except Exception as e:
+                print(f"⚠️ Erro ao tocar música: {e}")
 
     def stop_music(self):
+        """Para a música de fundo"""
         try:
             music.stop()
             self.music_playing = False
-        except:
-            pass
+        except Exception as e:
+            print(f"⚠️ Erro ao parar música: {e}")
 
     def play_sound(self, sound_name):
         if self.sound_enabled:
             try:
-                sounds[sound_name].play()
-            except:
-                pass
+                # PgZero usa notação de atributo, não subscript
+                sound = getattr(sounds, sound_name)
+                sound.play()
+            except AttributeError:
+                print(f"⚠️ Som '{sound_name}' não encontrado!")
+                print(f"   Certifique-se de que o arquivo sounds/{sound_name}.wav existe")
+            except Exception as e:
+                print(f"⚠️ Erro ao tocar som '{sound_name}': {e}")
 
     def start_game(self):
+        """Inicia uma nova partida"""
         self.reset_game()
         self.state = GameState.PLAYING
         self.play_music()
 
     def update(self, dt):
+        """Atualiza a lógica do jogo"""
         if self.state == GameState.PLAYING:
-            # O update do player agora cuida da troca de sprites
+            # Atualiza o jogador
             if not self.player.update(dt, self.platforms):
+                # Jogador caiu fora da tela
                 self.game_over = True
                 self.state = GameState.GAME_OVER
                 self.stop_music()
                 self.play_sound('game_over')
 
+            # Atualiza inimigos e verifica colisões
             for enemy in self.enemies:
                 enemy.update(dt)
                 if self.player.check_collision(enemy):
+                    # Colidiu com inimigo
                     self.game_over = True
                     self.state = GameState.GAME_OVER
                     self.stop_music()
                     self.play_sound('game_over')
 
+            # Incrementa pontuação
             self.score += 1
 
     def draw(self):
+        """Renderiza o jogo na tela"""
         screen.clear()
         screen.fill('skyblue')
 
@@ -422,6 +437,7 @@ class Game:
             self.draw_game_over()
 
     def draw_menu(self):
+        """Desenha o menu principal"""
         screen.draw.text(TITLE, center=(WIDTH // 2, 100), fontsize=50, color='darkblue')
         self.start_button.draw()
         self.sound_button.draw()
@@ -429,6 +445,7 @@ class Game:
         screen.draw.text("Sobreviva o máximo possível!", center=(WIDTH // 2, 460), fontsize=25, color='white')
 
     def draw_game(self):
+        """Desenha o jogo em andamento"""
         for platform in self.platforms:
             platform.draw()
         for enemy in self.enemies:
@@ -441,6 +458,7 @@ class Game:
                          color='white')
 
     def draw_game_over(self):
+        """Desenha a tela de game over"""
         screen.draw.text("GAME OVER", center=(WIDTH // 2, HEIGHT // 2 - 50), fontsize=60, color='red')
         screen.draw.text(f"Pontuação Final: {self.score}", center=(WIDTH // 2, HEIGHT // 2 + 20), fontsize=40,
                          color='white')
@@ -458,6 +476,7 @@ game = Game()
 # EVENTOS
 # ============================================
 def on_mouse_move(pos):
+    """Atualiza hover dos botões no menu"""
     if game.state == GameState.MENU:
         game.start_button.update(pos)
         game.sound_button.update(pos)
@@ -465,6 +484,7 @@ def on_mouse_move(pos):
 
 
 def on_mouse_down(pos):
+    """Gerencia cliques do mouse"""
     if game.state == GameState.MENU:
         if game.start_button.is_clicked(pos):
             game.start_game()
@@ -475,8 +495,10 @@ def on_mouse_down(pos):
 
 
 def on_key_down(key):
+    """Gerencia teclas pressionadas"""
     if game.state == GameState.PLAYING:
         if key == keys.SPACE:
+            # Tenta pular e toca o som se conseguiu
             if game.player.jump():
                 game.play_sound('jump')
     elif game.state == GameState.GAME_OVER:
@@ -486,13 +508,14 @@ def on_key_down(key):
 
 
 def on_key_up(key):
+    """Gerencia teclas liberadas"""
     if game.state == GameState.PLAYING:
         if key == keys.SPACE:
             game.player.release_jump()
 
 
 def handle_keyboard():
-    # Esta função é chamada em cada frame antes do update principal
+    """Gerencia input contínuo do teclado"""
     if game.state == GameState.PLAYING:
         if keyboard.left:
             game.player.move_left()
@@ -501,11 +524,13 @@ def handle_keyboard():
 
 
 def update(dt):
+    """Loop principal de update do jogo"""
     handle_keyboard()
     game.update(dt)
 
 
 def draw():
+    """Loop principal de renderização"""
     game.draw()
 
 
