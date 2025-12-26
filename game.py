@@ -2,7 +2,7 @@ import pgzrun
 import random
 from enum import Enum
 import os
-import pygame  # Necessário para transformar (escalar/virar) a imagem
+import pygame.transform  # Necessário para transformar (escalar/virar) a imagem
 
 from pgzero import music
 from pgzero.keyboard import keyboard
