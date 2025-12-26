@@ -25,14 +25,16 @@ ENEMY_SPEED = 2
 
 ENEMY_SPRITE = 'jacare/jacare.png'
 PLAYER_SPRITE_IDLE = 'mini_homem/mini_homem_parado.png'
-PLAYER_SPRITE_JUMPING = 'mini_homem/mini_homem_correndo.png'
-PLAYER_SPRITE_RUNING = 'mini_homem/mini_homem_pulando.png'
+PLAYER_SPRITE_RUNNING = 'mini_homem/mini_homem_correndo.png'
+PLAYER_SPRITE_JUMPING = 'mini_homem/mini_homem_pulando.png'
+
 
 class GameState(Enum):
     """Enumeração dos estados do jogo"""
     MENU = 1
     PLAYING = 2
     GAME_OVER = 3
+
 
 # --- CLASSE AnimatedSprite REMOVIDA (Não é mais necessária) ---
 
@@ -50,14 +52,14 @@ class Player:
         self.is_on_ground = False
         self.facing_right = True
         self.jump_pressed = False
-        self.is_moving_horizontal = False # Nova flag para saber se está correndo
+        self.is_moving_horizontal = False  # Nova flag para saber se está correndo
 
         # --- Carregamento e Configuração de Sprites ---
         # Tenta carregar as imagens. Se falhar, usa placeholders.
         try:
             # Carrega os Actors iniciais para obter as superfícies
             idle_actor = Actor(PLAYER_SPRITE_IDLE)
-            run_actor = Actor(PLAYER_SPRITE_RUNING)
+            run_actor = Actor(PLAYER_SPRITE_RUNNING)
             jump_actor = Actor(PLAYER_SPRITE_JUMPING)
 
             # Escala as superfícies originais para o tamanho do hitbox (40x40)
@@ -68,19 +70,16 @@ class Player:
 
             # O Actor principal que será desenhado na tela
             self.MainActor = Actor(PLAYER_SPRITE_IDLE)
-            self.MainActor._surf = self.surf_idle_base # Define a imagem inicial
+            self.MainActor._surf = self.surf_idle_base  # Define a imagem inicial
             self.sprites_loaded = True
         except Exception as e:
             print(f"Erro ao carregar sprites do jogador: {e}")
             self.sprites_loaded = False
-            self.MainActor = None # Fallback
+            self.MainActor = None  # Fallback
 
     def update(self, dt, platforms):
         """Atualiza a física, posição e escolhe o sprite correto"""
-        # Reseta a flag de movimento horizontal no início do frame
-        # Ela será setada como True se move_left/right forem chamados
-        self.is_moving_horizontal = False
-
+        # Aplica física
         self.velocity_y += GRAVITY
         self.y += self.velocity_y
 
@@ -91,6 +90,27 @@ class Player:
                     self.y = platform.y - self.height
                     self.velocity_y = 0
                     self.is_on_ground = True
+
+        # Verificação adicional: se está muito próximo de uma plataforma, considera no chão
+        # Isso resolve problemas de timing entre física e renderização
+        if not self.is_on_ground:
+            for platform in platforms:
+                # Distância vertical até a plataforma
+                distance_to_platform = platform.y - (self.y + self.height)
+                # Se está a menos de 3 pixels e há overlap horizontal
+                if -3 <= distance_to_platform <= 3:
+                    player_left = self.x
+                    player_right = self.x + self.width
+                    platform_left = platform.x
+                    platform_right = platform.x + platform.width
+
+                    # Verifica overlap horizontal
+                    if player_right > platform_left and player_left < platform_right:
+                        self.is_on_ground = True
+                        self.y = platform.y - self.height
+                        if self.velocity_y > 0:
+                            self.velocity_y = 0
+                        break
 
         if self.y > HEIGHT:
             return False
@@ -118,6 +138,10 @@ class Player:
             self.MainActor._surf = final_surf
             self.MainActor.topleft = (self.x, self.y)
 
+        # Reseta a flag de movimento para o próximo frame
+        # Será setada novamente se houver input no próximo frame
+        self.is_moving_horizontal = False
+
         return True
 
     def jump(self):
@@ -134,14 +158,14 @@ class Player:
     def move_left(self):
         self.x -= PLAYER_SPEED
         self.facing_right = False
-        self.is_moving_horizontal = True # Indica que houve movimento neste frame
+        self.is_moving_horizontal = True  # Indica que houve movimento neste frame
         if self.x < 0:
             self.x = 0
 
     def move_right(self):
         self.x += PLAYER_SPEED
         self.facing_right = True
-        self.is_moving_horizontal = True # Indica que houve movimento neste frame
+        self.is_moving_horizontal = True  # Indica que houve movimento neste frame
         if self.x > WIDTH - self.width:
             self.x = WIDTH - self.width
 
@@ -164,6 +188,7 @@ class Enemy:
     """
     Inimigo Jacaré - Refatorado para usar Sprite/Imagem
     """
+
     def __init__(self, x, y, platform):
         self.x = x
         self.y = y
@@ -213,8 +238,10 @@ class Enemy:
         else:
             screen.draw.filled_rect(self.get_rect(), 'red')
 
+
 class Platform:
     """Objeto de plataforma estática"""
+
     def __init__(self, x, y, width, height):
         self.x = x
         self.y = y
@@ -231,6 +258,7 @@ class Platform:
 
 class Button:
     """Botão clicável do menu"""
+
     def __init__(self, x, y, width, height, text, color='gray'):
         self.rect = Rect(x, y, width, height)
         self.text = text
@@ -257,6 +285,7 @@ class Button:
 
 class Game:
     """Controlador principal do jogo"""
+
     def __init__(self):
         self.state = GameState.MENU
         self.sound_enabled = True
@@ -365,20 +394,26 @@ class Game:
         self.player.draw()
         screen.draw.text(f"Pontuação: {self.score}", (10, 10), fontsize=30, color='white')
         screen.draw.text(f"Inimigos: {len(self.enemies)}", (10, 45), fontsize=25, color='white')
-        screen.draw.text("Setas direcionais [<-] [->] Mover | Espaço: Pular", (10, HEIGHT - 30), fontsize=20, color='white')
+        screen.draw.text("Setas direcionais [<-] [->] Mover | Espaço: Pular", (10, HEIGHT - 30), fontsize=20,
+                         color='white')
 
     def draw_game_over(self):
         screen.draw.text("GAME OVER", center=(WIDTH // 2, HEIGHT // 2 - 50), fontsize=60, color='red')
-        screen.draw.text(f"Pontuação Final: {self.score}", center=(WIDTH // 2, HEIGHT // 2 + 20), fontsize=40, color='white')
-        screen.draw.text("Pressione ENTER para voltar ao menu", center=(WIDTH // 2, HEIGHT // 2 + 80), fontsize=25, color='white')
+        screen.draw.text(f"Pontuação Final: {self.score}", center=(WIDTH // 2, HEIGHT // 2 + 20), fontsize=40,
+                         color='white')
+        screen.draw.text("Pressione ENTER para voltar ao menu", center=(WIDTH // 2, HEIGHT // 2 + 80), fontsize=25,
+                         color='white')
+
 
 game = Game()
+
 
 def on_mouse_move(pos):
     if game.state == GameState.MENU:
         game.start_button.update(pos)
         game.sound_button.update(pos)
         game.exit_button.update(pos)
+
 
 def on_mouse_down(pos):
     if game.state == GameState.MENU:
@@ -388,6 +423,7 @@ def on_mouse_down(pos):
             game.toggle_sound()
         elif game.exit_button.is_clicked(pos):
             exit()
+
 
 def on_key_down(key):
     if game.state == GameState.PLAYING:
@@ -399,10 +435,12 @@ def on_key_down(key):
             game.state = GameState.MENU
             game.stop_music()
 
+
 def on_key_up(key):
     if game.state == GameState.PLAYING:
         if key == keys.SPACE:
             game.player.release_jump()
+
 
 def handle_keyboard():
     # Esta função é chamada todo frame antes do update principal
@@ -412,11 +450,14 @@ def handle_keyboard():
         if keyboard.right:
             game.player.move_right()
 
+
 def update(dt):
     handle_keyboard()
     game.update(dt)
 
+
 def draw():
     game.draw()
+
 
 pgzrun.go()
