@@ -1,7 +1,7 @@
 import pgzrun
 import random
-from enum import Enum
 import os
+from enum import Enum
 
 # Necessário para transformar (escalar/virar) o sprite, pois o PGZero não faz de modo nativo
 from pygame.transform import scale
